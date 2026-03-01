@@ -1,20 +1,41 @@
-{{ define "body"}} 
+{{ define "body"}}
 
 <div class="text-center p-2">
     <h2>{{.FormConfig.Title}} - 表单填报信息汇总</h2>
-    
-    {{ if gt .TotalCount 0 }}
+
     <div class="alert alert-info mb-3">
-        <p>当前表单：<strong>{{.FormConfig.Title}}</strong></p>
-        <!-- <p>提示：仅显示当前表单配置下的响应数据。如果切换了表单配置，将看不到旧配置下的响应数据。</p> -->
+        <form method="GET" action="/list" class="row g-3 align-items-center justify-content-center">
+            <div class="col-auto">
+                <label for="configSelect" class="col-form-label">选择表单配置：</label>
+            </div>
+            <div class="col-auto">
+                <select name="config" id="configSelect" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="all" {{ if eq .SelectedConfig "all" }}selected{{ end }}>-- 显示所有配置 --</option>
+                    {{ range .AvailableConfigs }}
+                    <option value="{{ . }}" {{ if eq $.SelectedConfig . }}selected{{ end }}>{{ . }}</option>
+                    {{ end }}
+                </select>
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-secondary">共 {{ len .AllResponses }} 条记录</span>
+                {{ if ne .SelectedConfig "all" }}
+                <span class="badge bg-primary">当前显示 {{ .TotalCount }} 条</span>
+                {{ end }}
+            </div>
+        </form>
         <div class="mt-2">
             <a href="/export-csv" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-download"></i> 下载CSV
             </a>
         </div>
     </div>
-    {{ end }}
     
+    {{ if eq .SelectedConfig "all" }}
+    <div class="alert alert-warning">
+        <p><i class="bi bi-info-circle"></i> <strong>提示：</strong>请选择具体的表单配置以查看详细数据。</p>
+        <p class="mb-0">当前共有 <strong>{{ len .AllResponses }}</strong> 条记录分布在不同的表单配置中。</p>
+    </div>
+    {{ else }}
     <table class="table table-bordered table-striped table-sm">
         <thead>
             <tr>
@@ -96,10 +117,11 @@
                     <td>
                         <small>{{ $resp.ConfigFile }}</small>
                     </td>
-                </tr>    
+                </tr>
             {{ end }}
         </tbody>
     </table>
+    {{ end }}
 </div>
 
 {{ end }}

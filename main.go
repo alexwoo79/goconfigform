@@ -188,6 +188,22 @@ func loadFormConfigFromFile(filename string) error {
 	return nil
 }
 
+// loadFormConfigForList 加载指定配置文件的表单配置，不影响全局配置
+func loadFormConfigForList(filename string) (FormConfig, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return FormConfig{}, fmt.Errorf("无法读取配置文件 %s: %v", filename, err)
+	}
+
+	var config FormConfig
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return FormConfig{}, fmt.Errorf("解析配置文件 %s 失败: %v", filename, err)
+	}
+
+	return config, nil
+}
+
 func initUsers() {
 	loadUsersFromDB()
 }
@@ -461,6 +477,9 @@ type listData struct {
 	TotalCount          int
 	ResponsesWithConfig []*RsvpWithConfig
 	CurrentUser         *User
+	AvailableConfigs    []string
+	SelectedConfig      string
+	AllResponses        []*RsvpWithConfig
 }
 
 // RsvpWithConfig 用于在列表中配对响应和其配置
@@ -476,31 +495,87 @@ func listHandler(c *gin.Context) {
 		return
 	}
 
+	// 获取用户选择的配置筛选参数
+	selectedConfig := c.Query("config")
+	if selectedConfig == "" {
+		selectedConfig = "all" // 默认显示所有配置
+	}
+
 	responsesMutex.RLock()
 	defer responsesMutex.RUnlock()
 
 	formConfigMutex.RLock()
 	defer formConfigMutex.RUnlock()
 
-	totalCount := 0
-	filteredResponses := make([]*Rsvp, 0)
+	// 获取所有可用的配置列表
+	availableConfigs := getAvailableConfigs()
 
+	// 首先筛选出用户有权限查看的所有响应（不按配置筛选）
+	userResponses := make([]*Rsvp, 0)
 	for _, response := range responses {
-		if response.ConfigFile == currentConfigFile || response.ConfigFile == "" {
-			if user.IsAdmin || response.Username == user.Username {
-				totalCount++
-				filteredResponses = append(filteredResponses, response)
+		if user.IsAdmin || response.Username == user.Username {
+			userResponses = append(userResponses, response)
+		}
+	}
+
+	// 再按选择的配置进行筛选
+	filteredResponses := make([]*Rsvp, 0)
+	for _, response := range userResponses {
+		if selectedConfig == "all" || response.ConfigFile == selectedConfig || response.ConfigFile == "" {
+			filteredResponses = append(filteredResponses, response)
+		}
+	}
+
+	// 加载所有配置信息用于显示
+	configCache := make(map[string]FormConfig)
+	configCache[currentConfigFile] = formConfig
+
+	// 预加载所有可用配置到缓存
+	for _, configFile := range availableConfigs {
+		if _, ok := configCache[configFile]; !ok {
+			if cfg, err := loadFormConfigForList(configFile); err == nil {
+				configCache[configFile] = cfg
 			}
 		}
 	}
 
+	// 确定表格抬头使用的配置
+	// 如果选择了特定配置，使用该配置的字段；否则使用当前全局配置
+	displayFormConfig := formConfig
+	if selectedConfig != "all" {
+		if cfg, ok := configCache[selectedConfig]; ok {
+			displayFormConfig = cfg
+		}
+	}
+
+	// 构建所有用户有权限查看的响应（用于显示配置来源）
+	allResponsesWithConfig := make([]*RsvpWithConfig, 0, len(userResponses))
+	for _, response := range userResponses {
+		config := response.Config
+		if config.Title == "" {
+			if cachedConfig, ok := configCache[response.ConfigFile]; ok {
+				config = cachedConfig
+			} else {
+				config = formConfig
+			}
+		}
+		allResponsesWithConfig = append(allResponsesWithConfig, &RsvpWithConfig{
+			Response: response,
+			Config:   config,
+		})
+	}
+
+	// 构建筛选后的响应（用于表格显示）
 	responsesWithConfig := make([]*RsvpWithConfig, 0, len(filteredResponses))
 	for _, response := range filteredResponses {
 		config := response.Config
 		if config.Title == "" {
-			config = formConfig
+			if cachedConfig, ok := configCache[response.ConfigFile]; ok {
+				config = cachedConfig
+			} else {
+				config = formConfig
+			}
 		}
-
 		responsesWithConfig = append(responsesWithConfig, &RsvpWithConfig{
 			Response: response,
 			Config:   config,
@@ -509,10 +584,13 @@ func listHandler(c *gin.Context) {
 
 	data := listData{
 		Responses:           filteredResponses,
-		FormConfig:          formConfig,
-		TotalCount:          totalCount,
+		FormConfig:          displayFormConfig,
+		TotalCount:          len(filteredResponses),
 		ResponsesWithConfig: responsesWithConfig,
 		CurrentUser:         user,
+		AvailableConfigs:    availableConfigs,
+		SelectedConfig:      selectedConfig,
+		AllResponses:        allResponsesWithConfig,
 	}
 	err := templates["list"].Execute(c.Writer, data)
 	if err != nil {
