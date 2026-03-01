@@ -19,7 +19,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed layout.html welcome.html form.html thanks.html list.html config_manager.html login.html register.html
+//go:embed layout.html welcome.html form.html thanks.html list.html config_manager.html login.html register.html user_manager.html
 var templateFS embed.FS
 
 const (
@@ -452,6 +452,41 @@ func loadTemplates() {
 		fmt.Printf("加载模板 register 失败: %v\n", err)
 	}
 
+	userManagerT, err := template.New("layout.html").Funcs(template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"div": func(a, b int) float64 {
+			if b == 0 {
+				return 0
+			}
+			return float64(a) / float64(b)
+		},
+		"mul": func(a, b float64) float64 { return a * b },
+		"GetFieldValue": func(fd formData, fieldName string) string {
+			for _, field := range fd.FormConfig.Fields {
+				if field.Name == fieldName {
+					return field.Value
+				}
+			}
+			return ""
+		},
+		"getMapValue": func(m map[string]string, key string) string {
+			if m == nil {
+				return ""
+			}
+			return m[key]
+		},
+		"split": func(s, sep string) []string {
+			return strings.Split(s, sep)
+		},
+	}).ParseFS(templateFS, "layout.html", "user_manager.html")
+	if err == nil {
+		templates["user_manager"] = userManagerT
+		fmt.Println("成功加载模板: user_manager")
+	} else {
+		fmt.Printf("加载模板 user_manager 失败: %v\n", err)
+	}
+
 	requiredTemplates := []string{"welcome", "form", "thanks"}
 	for _, name := range requiredTemplates {
 		if templates[name] == nil {
@@ -881,6 +916,199 @@ func logoutHandler(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/login")
 }
 
+type userManagerData struct {
+	CurrentUser *User
+	Users       []*User
+	Success     string
+	Error       string
+}
+
+func userManagerHandler(c *gin.Context) {
+	user := getCurrentUser(c)
+	if user == nil {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	data := userManagerData{
+		CurrentUser: user,
+	}
+
+	data.Success = c.Query("success")
+	data.Error = c.Query("error")
+
+	if user.IsAdmin {
+		usersMutex.RLock()
+		userList := make([]*User, 0, len(users))
+		for _, u := range users {
+			userList = append(userList, u)
+		}
+		usersMutex.RUnlock()
+		data.Users = userList
+	}
+
+	err := templates["user_manager"].Execute(c.Writer, data)
+	if err != nil {
+		fmt.Printf("模板执行错误: %v\n", err)
+		c.String(500, "模板执行失败: "+err.Error())
+	}
+}
+
+func changePasswordHandler(c *gin.Context) {
+	user := getCurrentUser(c)
+	if user == nil {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	currentPassword := c.Request.FormValue("current_password")
+	newPassword := c.Request.FormValue("new_password")
+	confirmPassword := c.Request.FormValue("confirm_password")
+
+	if user.Password != currentPassword {
+		c.Redirect(http.StatusFound, "/user-manager?error=当前密码错误")
+		return
+	}
+
+	if newPassword != confirmPassword {
+		c.Redirect(http.StatusFound, "/user-manager?error=两次新密码不一致")
+		return
+	}
+
+	if newPassword == "" {
+		c.Redirect(http.StatusFound, "/user-manager?error=新密码不能为空")
+		return
+	}
+
+	usersMutex.Lock()
+	user.Password = newPassword
+	usersMutex.Unlock()
+
+	if err := updateUserPasswordInDB(user.Username, newPassword); err != nil {
+		c.Redirect(http.StatusFound, "/user-manager?error=密码更新失败")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/user-manager?success=密码修改成功")
+}
+
+func addUserHandler(c *gin.Context) {
+	user := getCurrentUser(c)
+	if user == nil || !user.IsAdmin {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	username := c.Request.FormValue("username")
+	password := c.Request.FormValue("password")
+	isAdmin := c.Request.FormValue("is_admin") == "1"
+
+	if username == "" || password == "" {
+		c.Redirect(http.StatusFound, "/user-manager?error=用户名和密码不能为空")
+		return
+	}
+
+	usersMutex.Lock()
+	if _, exists := users[username]; exists {
+		usersMutex.Unlock()
+		c.Redirect(http.StatusFound, "/user-manager?error=用户名已存在")
+		return
+	}
+
+	newUser := &User{
+		Username: username,
+		Password: password,
+		IsAdmin:  isAdmin,
+	}
+	users[username] = newUser
+	usersMutex.Unlock()
+
+	if err := saveUserToDB(newUser); err != nil {
+		c.Redirect(http.StatusFound, "/user-manager?error=用户创建失败")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/user-manager?success=用户创建成功")
+}
+
+func editUserHandler(c *gin.Context) {
+	user := getCurrentUser(c)
+	if user == nil || !user.IsAdmin {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	username := c.Request.FormValue("username")
+	newPassword := c.Request.FormValue("new_password")
+	isAdmin := c.Request.FormValue("is_admin") == "1"
+
+	usersMutex.Lock()
+	targetUser, exists := users[username]
+	if !exists {
+		usersMutex.Unlock()
+		c.Redirect(http.StatusFound, "/user-manager?error=用户不存在")
+		return
+	}
+
+	if newPassword != "" {
+		targetUser.Password = newPassword
+	}
+	targetUser.IsAdmin = isAdmin
+	usersMutex.Unlock()
+
+	if err := updateUserInDB(username, newPassword, isAdmin); err != nil {
+		c.Redirect(http.StatusFound, "/user-manager?error=用户更新失败")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/user-manager?success=用户更新成功")
+}
+
+func deleteUserHandler(c *gin.Context) {
+	user := getCurrentUser(c)
+	if user == nil || !user.IsAdmin {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	username := c.Request.FormValue("username")
+
+	if username == "admin" {
+		c.Redirect(http.StatusFound, "/user-manager?error=不能删除admin用户")
+		return
+	}
+
+	usersMutex.Lock()
+	delete(users, username)
+	usersMutex.Unlock()
+
+	if err := deleteUserFromDB(username); err != nil {
+		c.Redirect(http.StatusFound, "/user-manager?error=用户删除失败")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/user-manager?success=用户删除成功")
+}
+
+func updateUserPasswordInDB(username, password string) error {
+	_, err := db.Exec("UPDATE users SET password = ? WHERE username = ?", password, username)
+	return err
+}
+
+func updateUserInDB(username, password string, isAdmin bool) error {
+	if password != "" {
+		_, err := db.Exec("UPDATE users SET password = ?, is_admin = ? WHERE username = ?", password, isAdmin, username)
+		return err
+	}
+	_, err := db.Exec("UPDATE users SET is_admin = ? WHERE username = ?", isAdmin, username)
+	return err
+}
+
+func deleteUserFromDB(username string) error {
+	_, err := db.Exec("DELETE FROM users WHERE username = ?", username)
+	return err
+}
+
 func main() {
 	if err := loadFormConfig(); err != nil {
 		panic(err)
@@ -913,6 +1141,11 @@ func main() {
 	r.POST("/switch-config", authMiddleware(), switchConfigHandler)
 	r.GET("/config-manager", authMiddleware(), configManagerHandler)
 	r.GET("/config_manager", authMiddleware(), configManagerHandler)
+	r.GET("/user-manager", authMiddleware(), userManagerHandler)
+	r.POST("/user-manager/change-password", authMiddleware(), changePasswordHandler)
+	r.POST("/user-manager/add", authMiddleware(), addUserHandler)
+	r.POST("/user-manager/edit", authMiddleware(), editUserHandler)
+	r.POST("/user-manager/delete", authMiddleware(), deleteUserHandler)
 	r.GET("/export-csv", authMiddleware(), csvExportHandler)
 	r.GET("/pace", runningPaceHandler)
 	r.POST("/pace", runningPaceHandler)

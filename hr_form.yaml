@@ -1,0 +1,127 @@
+title: "员工季度考核评分表"
+fields:
+  - name: employee_name
+    label: 员工姓名
+    type: text
+    required: true
+    placeholder: 请输入员工姓名
+  - name: employee_id
+    label: 员工工号
+    type: text
+    required: true
+    placeholder: 请输入员工工号（如：EMP2024001）
+  - name: quarter
+    label: 考核季度
+    type: select
+    required: true
+    options:
+      - value: ""
+        text: 请选择季度
+      - value: Q1
+        text: 第一季度（1-3月）
+      - value: Q2
+        text: 第二季度（4-6月）
+      - value: Q3
+        text: 第三季度（7-9月）
+      - value: Q4
+        text: 第四季度（10-12月）
+  - name: department
+    label: 所属部门
+    type: text
+    required: true
+    placeholder: 请输入所属部门（如：研发部、市场部）
+  - name: performance_score
+    label: 工作业绩评分
+    type: range
+    required: true
+    min: "0"
+    max: "100"
+    step: "1"
+    value: "80"
+    description: 考核维度：任务完成率、工作质量、业绩达成度
+  - name: ability_score
+    label: 能力提升评分
+    type: range
+    required: true
+    min: "0"
+    max: "100"
+    step: "1"
+    value: "80"
+    description: 考核维度：学习能力、技能提升、创新能力
+  - name: teamwork_score
+    label: 团队协作评分
+    type: range
+    required: true
+    min: "0"
+    max: "100"
+    step: "1"
+    value: "80"
+    description: 考核维度：沟通配合、责任心、团队贡献度
+  - name: attendance_status
+    label: 考勤情况
+    type: radio
+    required: true
+    options:
+      - value: excellent
+        text: 优秀（无迟到早退、全勤）
+      - value: good
+        text: 良好（迟到早退≤3次）
+      - value: general
+        text: 一般（迟到早退4-6次）
+      - value: poor
+        text: 较差（迟到早退＞6次/旷工）
+  - name: bonus_items
+    label: 加分项
+    type: checkbox
+    required: false
+    options:
+      - value: project
+        text: 主导/核心参与重点项目并完成目标
+      - value: award
+        text: 获得公司/行业奖项
+      - value: innovation
+        text: 提出有效创新建议/优化方案
+      - value: overtime
+        text: 主动加班完成紧急/重要任务（≥10次）
+      - value: other
+        text: 其他突出贡献（需在备注说明）
+  - name: penalty_items
+    label: 扣分项
+    type: checkbox
+    required: false
+    options:
+      - value: error
+        text: 工作失误造成公司损失
+      - value: delay
+        text: 多次未按时完成核心任务
+      - value: conflict
+        text: 与同事发生重大冲突/违规行为
+      - value: other_penalty
+        text: 其他违规行为（需在备注说明）
+  - name: assessment_comments
+    label: 考核评语
+    type: textarea
+    required: true
+    placeholder: 请输入综合考核评语（包括优势、不足、改进建议等）
+    rows: 5
+  - name: assessor_name
+    label: 考核人
+    type: text
+    required: true
+    placeholder: 请输入考核人姓名
+  - name: assessor_position
+    label: 考核人职位
+    type: text
+    required: true
+    placeholder: 请输入考核人职位（如：部门经理、主管）
+buttons:
+  - type: submit
+    text: 提交考核表
+    class: btn-success
+  - type: reset
+    text: 重置表单
+    class: btn-warning
+  - type: link
+    text: 返回考核列表
+    href: /list
+    class: btn-info
