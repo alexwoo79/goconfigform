@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
 	"gopkg.in/yaml.v3"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed layout.html welcome.html form.html thanks.html list.html config_manager.html login.html register.html user_manager.html
@@ -30,7 +30,7 @@ var db *sql.DB
 
 func initDB() error {
 	var err error
-	db, err = sql.Open("sqlite3", dbFile)
+	db, err = sql.Open("sqlite", dbFile)
 	if err != nil {
 		return err
 	}
