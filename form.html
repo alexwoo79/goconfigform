@@ -1,0 +1,103 @@
+{{ define "body"}}
+
+<div class="h5 bg-primary text-white text-center py-3 px-2 mb-4">{{.FormConfig.Title}}</div>
+
+{{ if gt (len .Errors) 0}}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10 col-sm-12">
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                <strong>请修正以下错误：</strong>
+                <ul class="mb-0 mt-1">
+                    {{ range .Errors }}
+                    <li>{{ . }}</li>
+                    {{ end }}
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{{ end }}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10 col-sm-12">
+            <form method="POST">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        {{ range .FormConfig.Fields }}
+                        <div class="mb-3">
+                            <label class="form-label">{{.Label}}{{if .Required}}<span
+                                    class="text-danger">*</span>{{end}}:</label>
+
+                            {{ if eq .Type "select" }}
+                            {{ $field := . }}
+                            <select name="{{.Name}}" class="form-select form-select-lg">
+                                {{ range .Options }}
+                                <option value="{{.Value}}" {{if eq .Value $field.Value}}selected{{end}}>
+                                    {{.Text}}
+                                </option>
+                                {{ end }}
+                            </select>
+                            {{ else if eq .Type "textarea" }}
+                            <textarea name="{{.Name}}" class="form-control form-control-lg" rows="3" {{if
+                                .Placeholder}}placeholder="{{.Placeholder}}" {{end}} {{if
+                                .Required}}required{{end}}>{{.Value}}</textarea>
+                            {{ else if eq .Type "checkbox" }}
+                            {{ $fieldName := .Name }}
+                            {{ range .Options }}
+                            <div class="form-check">
+                                <input type="checkbox" name="{{$fieldName}}" value="{{.Value}}" class="form-check-input"
+                                    {{if eq (getMapValue $.Rsvp.Fields $fieldName) .Value}}checked{{end}}>
+                                <label class="form-check-label">{{.Text}}</label>
+                            </div>
+                            {{ end }}
+                            {{ else if eq .Type "radio" }}
+                            {{ $fieldName := .Name }}
+                            {{ range .Options }}
+                            <div class="form-check">
+                                <input type="radio" name="{{$fieldName}}" value="{{.Value}}" class="form-check-input"
+                                    {{if eq (getMapValue $.Rsvp.Fields $fieldName) .Value}}checked{{end}}>
+                                <label class="form-check-label">{{.Text}}</label>
+                            </div>
+                            {{ end }}
+                            {{ else if eq .Type "range" }}
+                            <input name="{{.Name}}" type="range" class="form-range"
+                                min="{{if .Min}}{{.Min}}{{else}}0{{end}}" max="{{if .Max}}{{.Max}}{{else}}100{{end}}"
+                                step="{{if .Step}}{{.Step}}{{else}}1{{end}}" value="{{.Value}}"
+                                oninput="document.getElementById('range-value-{{.Name}}').textContent = this.value"
+                                onchange="document.getElementById('range-value-{{.Name}}').textContent = this.value">
+                            <div class="mt-2 d-flex align-items-center">
+                                <span class="badge bg-primary me-2" id="range-value-{{.Name}}">{{.Value}}</span>
+                                <span>{{.Label}}</span>
+                            </div>
+                            {{ else }}
+                            <input name="{{.Name}}" type="{{.Type}}" class="form-control form-control-lg"
+                                value="{{.Value}}" {{if .Placeholder}}placeholder="{{.Placeholder}}" {{end}} {{if
+                                .Required}}required{{end}} />
+                            {{ end }}
+                        </div>
+                        {{ end }}
+
+                    </div>
+                </div>
+                <div class="mt-4 text-center">
+                    {{ range .FormConfig.Buttons }}
+                    {{ if eq .Type "submit" }}
+                    <button class="btn btn-primary btn-lg" type="submit">
+                        {{.Text}}
+                    </button>
+                    {{ else if eq .Type "link" }}
+                    <a href="{{.Href}}" class="btn btn-warning btn-lg">
+                        {{.Text}}
+                    </a>
+                    {{ end }}
+                    {{ end }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{ end }}

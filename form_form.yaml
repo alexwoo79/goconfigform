@@ -1,0 +1,84 @@
+title: "表单类型完整样例"
+fields:
+  - name: slider_field
+    label: 数值调节
+    type: range
+    required: false
+    min: "0"
+    max: "100"
+    step: "5"
+    value: "50"
+  - name: text_field
+    label: 文本输入
+    type: text
+    required: true
+    placeholder: 请输入文本内容
+  - name: email_field
+    label: 邮箱地址
+    type: email
+    required: true
+    placeholder: example@email.com
+  - name: password_field
+    label: 密码
+    type: password
+    required: true
+    placeholder: 请输入密码
+  - name: number_field
+    label: 数字输入
+    type: number
+    required: false
+    placeholder: 请输入数字
+  - name: date_field
+    label: 日期选择
+    type: date
+    required: false
+    placeholder: 请选择日期
+  - name: textarea_field
+    label: 多行文本
+    type: textarea
+    required: false
+    placeholder: 请输入多行文本内容
+    rows: 3
+  - name: select_field
+    label: 下拉选择
+    type: select
+    required: true
+    options:
+      - value: ""
+        text: 请选择选项
+      - value: option1
+        text: 选项一
+      - value: option2
+        text: 选项二
+      - value: option3
+        text: 选项三
+  - name: checkbox_field
+    label: 复选框
+    type: checkbox
+    required: false
+    options:
+      - value: option1
+        text: 选项一
+      - value: option2
+        text: 选项二
+      - value: option3
+        text: 选项三
+  - name: radio_field
+    label: 单选按钮
+    type: radio
+    required: true
+    options:
+      - value: option1
+        text: 选项一
+      - value: option2
+        text: 选项二
+      - value: option3
+        text: 选项三
+buttons:
+  - type: submit
+    text: 提交表单
+    class: btn-success
+  - type: link
+    text: 返回首页
+    href: /
+    class: btn-info

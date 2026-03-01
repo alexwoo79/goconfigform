@@ -1,0 +1,105 @@
+{{ define "body"}} 
+
+<div class="text-center p-2">
+    <h2>{{.FormConfig.Title}} - 表单填报信息汇总</h2>
+    
+    {{ if gt .TotalCount 0 }}
+    <div class="alert alert-info mb-3">
+        <p>当前表单：<strong>{{.FormConfig.Title}}</strong></p>
+        <!-- <p>提示：仅显示当前表单配置下的响应数据。如果切换了表单配置，将看不到旧配置下的响应数据。</p> -->
+        <div class="mt-2">
+            <a href="/export-csv" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-download"></i> 下载CSV
+            </a>
+        </div>
+    </div>
+    {{ end }}
+    
+    <table class="table table-bordered table-striped table-sm">
+        <thead>
+            <tr>
+                <th>填写用户</th>
+                {{/* 动态显示所有字段标签 */}}
+                {{ range $field := .FormConfig.Fields }}
+                    <th>{{ $field.Label }}</th>
+                {{ end }}
+                <th>表单来源</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ range .ResponsesWithConfig }}
+                {{ $respWithConfig := . }}
+                {{ $resp := .Response }}
+                {{ $config := .Config }}
+                <tr>
+                    <td>
+                        <span class="badge bg-secondary">{{ $resp.Username }}</span>
+                    </td>
+                    {{/* 动态显示所有字段值 */}}
+                    {{ range $field := $config.Fields }}
+                        <td>
+                            {{ $fieldValue := $resp.GetField $field.Name }}
+                            {{ if eq $field.Type "select" }}
+                                {{/* 通用选项匹配逻辑 */}}
+                                {{ $found := false }}
+                                {{ range $option := $field.Options }}
+                                    {{ if or (eq $option.Value $fieldValue) (eq (printf "%v" $option.Value) $fieldValue) }}
+                                        <span class="badge bg-info">{{ $option.Text }}</span>
+                                        {{ $found = true }}
+                                    {{ end }}
+                                {{ end }}
+                                {{ if not $found }}
+                                    {{ if ne $fieldValue "" }}
+                                        <span class="badge bg-warning">{{ $fieldValue }}</span>
+                                    {{ else }}
+                                        <span class="text-muted">-</span>
+                                    {{ end }}
+                                {{ end }}
+                            {{ else if eq $field.Type "checkbox" }}
+                                {{/* 处理多选框数据 */}}
+                                {{ if ne $fieldValue "" }}
+                                    {{ $options := split $fieldValue "," }}
+                                    {{ $first := true }}
+                                    {{ range $index, $optionValue := $options }}
+                                        {{ if not $first }}, {{ end }}
+                                        {{ $found := false }}
+                                        {{ range $option := $field.Options }}
+                                            {{ if eq $option.Value $optionValue }}
+                                                <span class="badge bg-info">{{ $option.Text }}</span>
+                                                {{ $found = true }}
+                                            {{ end }}
+                                        {{ end }}
+                                        {{ if not $found }}
+                                            <span class="badge bg-warning">{{ $optionValue }}</span>
+                                        {{ end }}
+                                        {{ $first = false }}
+                                    {{ end }}
+                                {{ else }}
+                                    <span class="text-muted">-</span>
+                                {{ end }}
+                            {{ else if eq $field.Type "range" }}
+                                {{/* 显示数值拉杆的值 */}}
+                                {{ if ne $fieldValue "" }}
+                                    <span class="badge bg-primary">{{ $fieldValue }}</span>
+                                {{ else }}
+                                    <span class="text-muted">-</span>
+                                {{ end }}
+                            {{ else }}
+                                {{ if ne $fieldValue "" }}
+                                    {{ $fieldValue }}
+                                {{ else }}
+                                    <span class="text-muted">-</span>
+                                {{ end }}
+                            {{ end }}
+                        </td>
+                    {{ end }}
+                    <td>
+                        <small>{{ $resp.ConfigFile }}</small>
+                    </td>
+                </tr>    
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+
+{{ end }}

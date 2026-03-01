@@ -1,0 +1,75 @@
+{{ define "body"}} 
+
+<div class="container mt-4">
+    <h2 class="text-center mb-4">表单配置管理</h2>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>当前配置</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>文件名:</strong> {{.CurrentConfig}}</p>
+                    <p><strong>表单标题:</strong> {{.FormConfig.Title}}</p>
+                    <p><strong>字段数量:</strong> {{len .FormConfig.Fields}}</p>
+                    <p><strong>按钮数量:</strong> {{len .FormConfig.Buttons}}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>切换配置</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="/switch-config">
+                        <div class="mb-3">
+                            <label for="configSelect" class="form-label">选择配置文件:</label>
+                            <select class="form-select" id="configSelect" name="config">
+                                {{ range .AvailableConfigs }}
+                                    <option value="{{.}}" {{if eq $.CurrentConfig .}}selected{{end}}>{{.}}</option>
+                                {{ end }}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">切换配置</button>
+                        <a href="/form" class="btn btn-secondary">查看表单</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>配置预览</h5>
+                </div>
+                <div class="card-body">
+                    <h6>字段列表:</h6>
+                    <ul class="list-group">
+                        {{ range .FormConfig.Fields }}
+                            <li class="list-group-item">
+                                <strong>{{.Label}}</strong> ({{.Name}}) - 类型: {{.Type}} 
+                                {{if .Required}}<span class="badge bg-danger">必填</span>{{end}}
+                            </li>
+                        {{ end }}
+                    </ul>
+                    
+                    <h6 class="mt-3">按钮列表:</h6>
+                    <ul class="list-group">
+                        {{ range .FormConfig.Buttons }}
+                            <li class="list-group-item">
+                                {{.Text}} ({{.Type}})
+                            </li>
+                        {{ end }}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ end }}
